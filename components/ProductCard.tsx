@@ -1,6 +1,11 @@
+"use client";
+
 import Image from "next/image";
+import Card from "./ui/card";
+import { useCartStore } from "@/store/useCartStore";
 
 type Props = {
+  id: number;
   name: string;
   price: number;
   imageUrl?: string;
@@ -8,10 +13,10 @@ type Props = {
   rating?: number;
   stock?: number;
   tags?: string;
-  onAddToCart?: () => void;
 };
 
 export default function ProductCard({
+  id,
   name,
   price,
   imageUrl,
@@ -19,24 +24,25 @@ export default function ProductCard({
   rating = 0,
   stock = 0,
   tags,
-  onAddToCart,
 }: Props) {
+  const addToCart = useCartStore(state => state.addItem);
+  const itemInCart = useCartStore(
+    state => state.items.find(i => i.id === id)
+  );
+
   const tagList = tags ? tags.split(",").map(t => t.trim()) : [];
 
+  const handleAddToCart = () => {
+    addToCart({
+      id,
+      name,
+      price,
+      imageUrl
+    });
+  };
+
   return (
-    <div
-      className="
-        group
-        bg-white
-        border border-gray-200
-        rounded-xl
-        overflow-hidden
-        transition-all duration-300
-        hover:shadow-xl
-        hover:border-sky-300
-        flex flex-col
-      "
-    >
+    <Card className="flex flex-col">
       {/* IMAGE */}
       <div className="relative w-full aspect-[4/3] bg-gray-50">
         <Image
@@ -46,7 +52,6 @@ export default function ProductCard({
           className="object-contain p-4 transition-transform duration-300 group-hover:scale-[1.03]"
         />
 
-        {/* STOCK BADGE */}
         {stock === 0 && (
           <span className="absolute top-3 left-3 bg-red-500 text-white text-xs font-semibold px-2 py-1 rounded">
             Out of stock
@@ -56,19 +61,16 @@ export default function ProductCard({
 
       {/* CONTENT */}
       <div className="p-4 flex flex-col flex-1">
-        {/* BRAND */}
         {brand && (
           <span className="text-xs uppercase tracking-wide text-gray-400 mb-1">
             {brand}
           </span>
         )}
 
-        {/* NAME */}
         <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 mb-2">
           {name}
         </h3>
 
-        {/* RATING */}
         {rating > 0 && (
           <div className="flex items-center gap-1 mb-2">
             <span className="text-yellow-400">★</span>
@@ -76,7 +78,6 @@ export default function ProductCard({
           </div>
         )}
 
-        {/* TAGS */}
         {tagList.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-3">
             {tagList.slice(0, 3).map(tag => (
@@ -90,23 +91,23 @@ export default function ProductCard({
           </div>
         )}
 
-        {/* PRICE */}
+        {/* PRICE + CTA */}
         <div className="mt-auto">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xl font-bold text-sky-700">
-              ${price.toFixed(2)}
+              €{price.toFixed(2)}
             </span>
+
             {stock > 0 && (
               <span className="text-xs text-green-600 font-medium">
-                In stock
+                В наличност
               </span>
             )}
           </div>
 
-          {/* CTA */}
           <button
             disabled={stock === 0}
-            onClick={onAddToCart}
+            onClick={handleAddToCart}
             className={`
               w-full py-2.5 rounded-lg text-sm font-medium transition
               ${
@@ -116,10 +117,10 @@ export default function ProductCard({
               }
             `}
           >
-            {stock === 0 ? "Unavailable" : "Add to Cart"}
+            {stock === 0 ? "Unavailable" : itemInCart ? "Add another" : "Add to Cart"}
           </button>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
