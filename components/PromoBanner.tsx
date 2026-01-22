@@ -1,11 +1,18 @@
-import React from "react";
-
-type Props = {
-  message: string;
-};
-
-export default function PromoBanner({ message }: Props) {
+export default function PromoBanner({ message }: { message: string }) {
   return (
-    <div className="bg-yellow-200 p-4 mb-4 rounded text-center font-bold">{message}</div>
+    <div className="
+      w-full
+      bg-gradient-to-r from-yellow-300 to-yellow-200
+      text-center
+      font-semibold
+      text-lg
+      py-4
+      rounded-lg
+      shadow
+      mt-5
+      mb-5
+    ">
+      {message}
+    </div>
   );
 }
