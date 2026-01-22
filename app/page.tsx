@@ -1,6 +1,3 @@
-import "swiper/css";
-import "swiper/css/navigation";
-import "swiper/css/pagination";
 import PromoBanner from "../components/PromoBanner";
 import ProductsGrid from "@/components/ProductGrid";
 
