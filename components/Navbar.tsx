@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { useCartStore } from "@/store/useCartStore";
+import { useSession, signOut } from "next-auth/react";
 
 function CartIcon({ className = "" }: { className?: string }) {
   return (
@@ -29,21 +30,36 @@ export default function Navbar() {
   const [cartOpen, setCartOpen] = useState(false);
   const pathname = usePathname();
 
-  const items = useCartStore(s => s.items);
+  const items = useCartStore((s) => s.items);
   const count = items.reduce((sum, i) => sum + i.quantity, 0);
   const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-  const increase = useCartStore(s => s.increase);
-  const decrease = useCartStore(s => s.decrease);
+  const increase = useCartStore((s) => s.increase);
+  const decrease = useCartStore((s) => s.decrease);
 
+  // NextAuth session
+  const { data: session } = useSession();
+  const isAdmin = (session?.user as { role?: string })?.role === "admin";
+  const isLoggedIn = !!session;
+
+  // Навигационни линкове
   const links = [
     { name: "Home", href: "/" },
     { name: "Products", href: "/products" },
     { name: "My Orders", href: "/orders" },
-    { name: "Admin", href: "/admin" },
   ];
 
+  // Добавяме Admin линк само ако е admin
+  if (isAdmin) {
+    links.push({ name: "Admin", href: "/admin" });
+  }
+
+  function isLinkActive(linkHref: string, currentPath: string) {
+    if (linkHref === "/") return currentPath === "/";
+    return currentPath.startsWith(linkHref);
+  }
+
   return (
-    <nav className="bg-gradient-to-r from-sky-950/95 to-sky-900/95 text-white fixed w-full z-50 top-0 shadow-lg backdrop-blur-md">
+    <nav className="bg-gradient-to-r from-sky-950/95 to-sky-900/95 text-white fixed w-full z-50 shadow-lg backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         {/* LOGO */}
         <Link
@@ -56,7 +72,7 @@ export default function Navbar() {
         {/* DESKTOP */}
         <div className="hidden md:flex items-center gap-6 text-sm font-medium">
           {links.map((link) => {
-            const isActive = pathname === link.href;
+            const isActive = isLinkActive(link.href, pathname);
             return (
               <Link
                 key={link.href}
@@ -78,6 +94,16 @@ export default function Navbar() {
               </Link>
             );
           })}
+
+          {/* Logout бутона */}
+          {isLoggedIn && (
+            <button
+              onClick={() => signOut({ callbackUrl: "/" })}
+              className="px-3 py-1 bg-red-500 hover:bg-red-600 rounded text-white transition"
+            >
+              Logout
+            </button>
+          )}
 
           {/* CART ICON */}
           <div
@@ -116,6 +142,16 @@ export default function Navbar() {
             </Link>
           ))}
 
+          {/* Logout бутон за мобилни */}
+          {isLoggedIn && (
+            <button
+              onClick={() => signOut({ callbackUrl: "/" })}
+              className="block w-full text-left px-3 py-2 bg-red-500 hover:bg-red-600 rounded text-white transition"
+            >
+              Logout
+            </button>
+          )}
+
           {/* MOBILE CART ICON */}
           <div
             className="relative ml-2 w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition cursor-pointer"
@@ -134,13 +170,11 @@ export default function Navbar() {
       {/* MINI CART DRAWER */}
       {cartOpen && (
         <>
-          {/* Backdrop */}
           <div
             className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity duration-300"
             onClick={() => setCartOpen(false)}
           />
 
-          {/* Drawer */}
           <div
             className={`
               fixed top-14 right-4 h-[50vh] w-80 max-w-full bg-white
