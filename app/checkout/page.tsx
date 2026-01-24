@@ -1,11 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Card from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCartStore } from "@/store/useCartStore";
+import { useGiftStore } from '@/store/useGiftStore';
+
+/* ===================== TYPES ===================== */
+interface Gift {
+  id: number;
+  name: string;
+  price: number;
+  imageUrl?: string;
+}
 
 export default function CheckoutPage() {
   const items = useCartStore(state => state.items);
@@ -25,8 +34,26 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
+  /* ===================== GIFTS ===================== */
+  const { gifts, selectedGift, setGifts, selectGift, resetGift } = useGiftStore();
 
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  const hasFreeGift = subtotal >= 20;
+
+  /* ===================== FETCH GIFTS ===================== */
+  useEffect(() => {
+    if (!hasFreeGift) {
+      setGifts([]);
+      selectGift(null);
+      return;
+    }
+
+    fetch('/api/admin/gifts')
+      .then(res => res.json())
+      .then(data => setGifts(data.gifts || []))
+      .catch(() => setGifts([]));
+  }, [hasFreeGift]);
 
   function generateOrderNumber() {
     const year = new Date().getFullYear();
@@ -149,6 +176,42 @@ export default function CheckoutPage() {
                 <span>€{subtotal.toFixed(2)}</span>
               </div>
             </Card>
+
+            {/* 🎁 FREE GIFT */}
+            {hasFreeGift && gifts.length > 0 && (
+              <Card className="p-6 space-y-4 bg-yellow-50 border-yellow-200">
+                <h2 className="text-xl font-semibold">
+                  Choose your free gift 🎁
+                </h2>
+
+                {gifts.map(gift => (
+                  <label
+                    key={gift.id}
+                    className={`flex gap-3 p-3 rounded-lg border cursor-pointer
+                      ${selectedGift?.id === gift.id
+                        ? 'border-yellow-500 bg-yellow-100'
+                        : 'border-gray-200 hover:bg-yellow-100/50'
+                      }`}
+                  >
+                    <input
+                      type="radio"
+                      name="gift"
+                      checked={selectedGift?.id === gift.id}
+                      onChange={() => selectGift(gift)}
+                    />
+                    <div>
+                      <p className="font-medium">{gift.name}</p>
+                      <p className="text-sm line-through text-gray-500">
+                        €{gift.price.toFixed(2)}
+                      </p>
+                      <p className="text-sm font-semibold text-green-600">
+                        Free
+                      </p>
+                    </div>
+                  </label>
+                ))}
+              </Card>
+            )}
 
             {/* Customer Info */}
             <Card className="p-6 space-y-4">

@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useCartStore } from "@/store/useCartStore";
 import { useSession, signOut } from "next-auth/react";
+import { useGiftStore } from "@/store/useGiftStore";
 
 function CartIcon({ className = "" }: { className?: string }) {
   return (
@@ -36,26 +37,38 @@ export default function Navbar() {
   const increase = useCartStore((s) => s.increase);
   const decrease = useCartStore((s) => s.decrease);
 
+  // Gift states
+  const { gifts, selectedGift, setGifts, selectGift, resetGift } = useGiftStore();
+
   // NextAuth session
   const { data: session } = useSession();
   const isAdmin = (session?.user as { role?: string })?.role === "admin";
   const isLoggedIn = !!session;
 
-  // Навигационни линкове
   const links = [
     { name: "Home", href: "/" },
     { name: "Products", href: "/products" },
   ];
 
-  // Добавяме Admin линк само ако е admin
-  if (isAdmin) {
-    links.push({ name: "Admin", href: "/admin" });
-  }
+  if (isAdmin) links.push({ name: "Admin", href: "/admin" });
 
   function isLinkActive(linkHref: string, currentPath: string) {
     if (linkHref === "/") return currentPath === "/";
     return currentPath.startsWith(linkHref);
   }
+
+  // Fetch gifts when total >= 20€
+  useEffect(() => {
+    if (total >= 20) {
+      fetch("/api/admin/gifts")
+        .then((res) => res.json())
+        .then((data) => setGifts(data.gifts || []))
+        .catch(() => setGifts([]));
+    } else {
+      setGifts([]);
+      selectGift(null);
+    }
+  }, [total]);
 
   return (
     <nav className="bg-gradient-to-r from-sky-950/95 to-sky-900/95 text-white fixed w-full z-50 shadow-lg backdrop-blur-md">
@@ -85,8 +98,7 @@ export default function Navbar() {
                   <span
                     className="absolute bottom-0 left-0 w-full h-[2px] rounded-full"
                     style={{
-                      background:
-                        "linear-gradient(to right, transparent, #facc15, transparent)",
+                      background: "linear-gradient(to right, transparent, #facc15, transparent)",
                     }}
                   />
                 )}
@@ -94,7 +106,7 @@ export default function Navbar() {
             );
           })}
 
-          {/* Logout бутона */}
+          {/* Logout */}
           {isLoggedIn && (
             <button
               onClick={() => signOut({ callbackUrl: "/" })}
@@ -141,7 +153,6 @@ export default function Navbar() {
             </Link>
           ))}
 
-          {/* Logout бутон за мобилни */}
           {isLoggedIn && (
             <button
               onClick={() => signOut({ callbackUrl: "/" })}
@@ -199,11 +210,7 @@ export default function Navbar() {
               )}
 
               {items.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center gap-2 p-1"
-                >
-                  {/* IMAGE */}
+                <div key={item.id} className="flex items-center gap-2 p-1">
                   <div className="relative w-10 h-10 bg-gray-50 rounded-sm flex-shrink-0 overflow-hidden">
                     <Image
                       src={item.imageUrl || "/placeholder.png"}
@@ -213,12 +220,10 @@ export default function Navbar() {
                     />
                   </div>
 
-                  {/* NAME */}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
                   </div>
 
-                  {/* QUANTITY */}
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => decrease(item.id)}
@@ -235,12 +240,45 @@ export default function Navbar() {
                     </button>
                   </div>
 
-                  {/* ITEM TOTAL */}
                   <span className="text-sm font-semibold w-14 text-right text-gray-900">
                     €{(item.price * item.quantity).toFixed(2)}
                   </span>
                 </div>
               ))}
+
+              {/* GIFT SELECTOR */}
+              {items.length > 0 && total >= 20 && gifts.length > 0 && (
+                <div className="p-4 border-t border-gray-200 flex flex-col gap-2 bg-yellow-50 rounded-lg mt-2">
+                  <p className="text-gray-800 font-medium text-sm mb-2">Choose your free gift 🎁</p>
+                  <div className="grid grid-cols-1 gap-2">
+                    {gifts.map((gift) => (
+                      <label
+                        key={gift.id}
+                        className={`flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-yellow-100 transition ${
+                          selectedGift?.id === gift.id ? "border-yellow-500 bg-yellow-100" : "border-gray-200 hover:bg-yellow-100/50"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="gift"
+                          checked={selectedGift?.id === gift.id}
+                          onChange={() => selectGift(gift)}
+                        />
+                        {gift.imageUrl && (
+                          <div className="w-8 h-8 relative flex-shrink-0">
+                            <Image src={gift.imageUrl} alt={gift.name} fill className="object-contain" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{gift.name}</p>
+                          <p className="text-xs text-gray-500 line-through">€{gift.price.toFixed(2)}</p>
+                          <p className="text-xs font-semibold text-green-600">Free</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* FOOTER */}

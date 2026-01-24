@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 
 interface Product {
-  id?: number;
   name: string;
   description?: string;
   price: number;
@@ -22,10 +21,17 @@ interface Product {
   categoryId: number;
 }
 
+interface FieldObj { 
+    label: string, 
+    key: string,
+    type: string,
+    step: number
+}
+
 export default function EditProductPage() {
   const router = useRouter();
   const params = useParams();
-  const productId = params?.id;
+  const productId = params.id as string;
 
   const [form, setForm] = useState<Product>({
     name: "",
@@ -46,7 +52,9 @@ export default function EditProductPage() {
   });
 
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
+  // Fetch product by ID
   useEffect(() => {
     if (!productId) return;
 
@@ -54,43 +62,51 @@ export default function EditProductPage() {
       .then((res) => res.json())
       .then((data) => {
         setForm({
-          name: data.name || "",
-          description: data.description || "",
+          name: data.name ?? "",
+          description: data.description ?? "",
           price: data.price ?? 0,
-          imageUrl: data.imageUrl || "",
+          imageUrl: data.imageUrl ?? "",
           stock: data.stock ?? 0,
-          sku: data.sku || "",
+          sku: data.sku ?? "",
           weight: data.weight ?? 0,
-          servingSize: data.servingSize || "",
-          ingredients: data.ingredients || "",
-          nutritionInfo: data.nutritionInfo || "",
-          allergens: data.allergens || "",
-          brand: data.brand || "",
-          tags: data.tags || "",
+          servingSize: data.servingSize ?? "",
+          ingredients: data.ingredients ?? "",
+          nutritionInfo: data.nutritionInfo ?? "",
+          allergens: data.allergens ?? "",
+          brand: data.brand ?? "",
+          tags: data.tags ?? "",
           rating: data.rating ?? 0,
           categoryId: data.categoryId ?? 1,
-          id: data.id,
         });
         setLoading(false);
       });
   }, [productId]);
 
+  // Update product
   async function handleUpdate(e: React.FormEvent) {
     e.preventDefault();
-    if (!productId) return;
+    setSaving(true);
 
-    const res = await fetch(`/api/admin/products/${productId}`, {
+    const res = await fetch(`/api/admin/products/edit/${productId}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(form),
     });
 
+    setSaving(false);
+
     if (res.ok) {
       router.push("/admin/products");
+    } else {
+      alert("Failed to update product");
     }
   }
 
-  if (loading) return <p className="p-8 text-gray-700">Loading product...</p>;
+  if (loading) {
+    return <p className="p-8 text-gray-700">Loading product...</p>;
+  }
 
   const fields = [
     { label: "Product Name", key: "name", type: "text" },
@@ -108,15 +124,17 @@ export default function EditProductPage() {
     { label: "Brand", key: "brand", type: "text" },
     { label: "Tags (CSV)", key: "tags", type: "text" },
     { label: "Rating", key: "rating", type: "number", step: 0.1 },
-  ];
+  ] as FieldObj[];
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
-      <h1 className="text-4xl font-bold mb-8 text-gray-800">Edit Product</h1>
+      <h1 className="text-4xl font-bold mb-8 text-gray-800">
+        Edit Product
+      </h1>
 
       <form
         onSubmit={handleUpdate}
-        className="mb-8 bg-white p-8 rounded-lg shadow-md space-y-6"
+        className="bg-white p-8 rounded-lg shadow-md space-y-6"
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {fields.map((field) => (
@@ -124,44 +142,49 @@ export default function EditProductPage() {
               <label className="block text-gray-700 font-medium mb-1">
                 {field.label}
               </label>
+
               {field.type === "textarea" ? (
                 <textarea
-                  value={(form as any)[field.key] || ""}
-                  onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
+                  value={(form as any)[field.key] ?? ""}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      [field.key]: e.target.value,
+                    })
+                  }
                   className="border p-3 w-full rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
                   rows={3}
                 />
               ) : (
                 <input
                   type={field.type}
-                  value={(form as any)[field.key] ?? (field.type === "number" ? 0 : "")}
+                  step={field.step}
+                  min={field.type === "number" ? 0 : undefined}
+                  max={field.key === "rating" ? 5 : undefined}
+                  value={(form as any)[field.key] ?? 0}
                   onChange={(e) =>
                     setForm({
                       ...form,
                       [field.key]:
                         field.type === "number"
-                          ? e.target.value === "" ? 0 : parseFloat(e.target.value)
+                          ? Number(e.target.value)
                           : e.target.value,
                     })
                   }
                   className="border p-3 w-full rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
-                  step={field.step}
-                  min={field.type === "number" ? 0 : undefined}
-                  max={field.key === "rating" ? 5 : undefined}
                 />
               )}
             </div>
           ))}
         </div>
 
-        <div className="mt-6">
-          <button
-            type="submit"
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
-          >
-            Update Product
-          </button>
-        </div>
+        <button
+          type="submit"
+          disabled={saving}
+          className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50"
+        >
+          {saving ? "Updating..." : "Update Product"}
+        </button>
       </form>
     </div>
   );
