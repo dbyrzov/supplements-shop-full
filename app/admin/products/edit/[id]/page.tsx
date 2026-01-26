@@ -21,11 +21,11 @@ interface Product {
   categoryId: number;
 }
 
-interface FieldObj { 
-    label: string, 
-    key: string,
-    type: string,
-    step: number
+interface FieldObj {
+  label: string;
+  key: string;
+  type: string;
+  step?: number;
 }
 
 export default function EditProductPage() {
@@ -51,6 +51,7 @@ export default function EditProductPage() {
     categoryId: 1,
   });
 
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -82,16 +83,32 @@ export default function EditProductPage() {
       });
   }, [productId]);
 
+  // Validate form
+  const validateForm = () => {
+    const newErrors: { [key: string]: string } = {};
+    if (!form.name.trim()) newErrors.name = "Product name is required";
+    if (form.price <= 0) newErrors.price = "Price must be greater than 0";
+    if (form.stock < 0) newErrors.stock = "Stock cannot be negative";
+    if (form.categoryId <= 0) newErrors.categoryId = "Category ID must be greater than 0";
+    if (form.rating! < 0 || form.rating! > 5) newErrors.rating = "Rating must be between 0 and 5";
+    return newErrors;
+  };
+
   // Update product
   async function handleUpdate(e: React.FormEvent) {
     e.preventDefault();
+
+    const validationErrors = validateForm();
+    if (Object.keys(validationErrors).length) {
+      setErrors(validationErrors);
+      return;
+    }
+    setErrors({});
     setSaving(true);
 
     const res = await fetch(`/api/admin/products/edit/${productId}`, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
 
@@ -100,7 +117,8 @@ export default function EditProductPage() {
     if (res.ok) {
       router.push("/admin/products");
     } else {
-      alert("Failed to update product");
+      const data = await res.json();
+      alert(data.error || "Failed to update product");
     }
   }
 
@@ -108,7 +126,7 @@ export default function EditProductPage() {
     return <p className="p-8 text-gray-700">Loading product...</p>;
   }
 
-  const fields = [
+  const fields: FieldObj[] = [
     { label: "Product Name", key: "name", type: "text" },
     { label: "Description", key: "description", type: "textarea" },
     { label: "Price ($)", key: "price", type: "number", step: 0.01 },
@@ -124,13 +142,11 @@ export default function EditProductPage() {
     { label: "Brand", key: "brand", type: "text" },
     { label: "Tags (CSV)", key: "tags", type: "text" },
     { label: "Rating", key: "rating", type: "number", step: 0.1 },
-  ] as FieldObj[];
+  ];
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
-      <h1 className="text-4xl font-bold mb-8 text-gray-800">
-        Edit Product
-      </h1>
+      <h1 className="text-4xl font-bold mb-8 text-gray-800">Edit Product</h1>
 
       <form
         onSubmit={handleUpdate}
@@ -140,19 +156,21 @@ export default function EditProductPage() {
           {fields.map((field) => (
             <div key={field.key}>
               <label className="block text-gray-700 font-medium mb-1">
-                {field.label}
+                {field.label}{" "}
+                {["name", "price", "stock", "categoryId", "rating"].includes(field.key) && (
+                  <span className="text-red-500">*</span>
+                )}
               </label>
 
               {field.type === "textarea" ? (
                 <textarea
                   value={(form as any)[field.key] ?? ""}
                   onChange={(e) =>
-                    setForm({
-                      ...form,
-                      [field.key]: e.target.value,
-                    })
+                    setForm({ ...form, [field.key]: e.target.value })
                   }
-                  className="border p-3 w-full rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  className={`border p-3 w-full rounded focus:outline-none focus:ring-1 ${
+                    errors[field.key] ? "border-red-500 focus:ring-red-400" : "focus:ring-blue-400"
+                  }`}
                   rows={3}
                 />
               ) : (
@@ -167,12 +185,20 @@ export default function EditProductPage() {
                       ...form,
                       [field.key]:
                         field.type === "number"
-                          ? Number(e.target.value)
+                          ? e.target.value === ""
+                            ? 0
+                            : Number(e.target.value)
                           : e.target.value,
                     })
                   }
-                  className="border p-3 w-full rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  className={`border p-3 w-full rounded focus:outline-none focus:ring-1 ${
+                    errors[field.key] ? "border-red-500 focus:ring-red-400" : "focus:ring-blue-400"
+                  }`}
                 />
+              )}
+
+              {errors[field.key] && (
+                <p className="text-red-500 text-sm mt-1">{errors[field.key]}</p>
               )}
             </div>
           ))}

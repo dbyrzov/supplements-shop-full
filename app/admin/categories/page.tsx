@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 interface Category {
   id?: number;
   name: string;
+  slug: string;
   description?: string;
   imageUrl?: string;
 }
@@ -17,9 +18,11 @@ export default function CategoriesAdmin() {
   const [debouncedSearch, setDebouncedSearch] = useState(search);
   const [form, setForm] = useState<Category>({
     name: "",
+    slug: "",
     description: "",
     imageUrl: "",
   });
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -47,9 +50,24 @@ export default function CategoriesAdmin() {
     fetchCategories();
   }, [fetchCategories]);
 
+  // Validate form
+  const validateForm = () => {
+    const newErrors: { [key: string]: string } = {};
+    if (!form.name.trim()) newErrors.name = "Name is required";
+    if (!form.slug.trim()) newErrors.slug = "Slug is required";
+    return newErrors;
+  };
+
   // Add category
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const validationErrors = validateForm();
+    if (Object.keys(validationErrors).length) {
+      setErrors(validationErrors);
+      return;
+    }
+    setErrors({});
+
     const res = await fetch("/api/admin/categories", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -57,8 +75,11 @@ export default function CategoriesAdmin() {
     });
 
     if (res.ok) {
-      fetchCategories(); // рефреш на таблицата
-      setForm({ name: "", description: "", imageUrl: "" });
+      fetchCategories();
+      setForm({ name: "", slug: "", description: "", imageUrl: "" });
+    } else {
+      const data = await res.json();
+      alert(data.error || "Failed to create category");
     }
   }
 
@@ -73,20 +94,30 @@ export default function CategoriesAdmin() {
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {[
-            { label: "Category Name", key: "name", type: "text" },
+            { label: "Category Name", key: "name", type: "text", required: true },
+            { label: "Slug", key: "slug", type: "text", required: true },
             { label: "Description", key: "description", type: "text" },
             { label: "Image URL", key: "imageUrl", type: "text" },
           ].map((field) => (
             <div key={field.key}>
-              <label className="block text-gray-700 font-medium mb-1">{field.label}</label>
+              <label className="block text-gray-700 font-medium mb-1">
+                {field.label} {field.required && <span className="text-red-500">*</span>}
+              </label>
               <input
                 type={field.type}
                 value={(form as any)[field.key]}
                 onChange={(e) =>
                   setForm({ ...form, [field.key]: e.target.value })
                 }
-                className="border p-3 w-full rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
+                className={`border p-3 w-full rounded focus:outline-none focus:ring-1 ${
+                  errors[field.key]
+                    ? "border-red-500 focus:ring-red-400"
+                    : "focus:ring-blue-400"
+                }`}
               />
+              {errors[field.key] && (
+                <p className="text-red-500 text-sm mt-1">{errors[field.key]}</p>
+              )}
             </div>
           ))}
         </div>
@@ -129,6 +160,7 @@ export default function CategoriesAdmin() {
             <tr>
               <th className="px-4 py-2 border text-left text-gray-700">ID</th>
               <th className="px-4 py-2 border text-left text-gray-700">Name</th>
+              <th className="px-4 py-2 border text-left text-gray-700">Slug</th>
               <th className="px-4 py-2 border text-left text-gray-700">Description</th>
               <th className="px-4 py-2 border text-left text-gray-700">Image URL</th>
               <th className="px-4 py-2 border text-left text-gray-700">Actions</th>
@@ -139,6 +171,7 @@ export default function CategoriesAdmin() {
               <tr key={c.id} className="hover:bg-gray-50 transition">
                 <td className="px-4 py-2 border">{c.id}</td>
                 <td className="px-4 py-2 border">{c.name}</td>
+                <td className="px-4 py-2 border">{c.slug}</td>
                 <td className="px-4 py-2 border">{c.description}</td>
                 <td className="px-4 py-2 border">{c.imageUrl}</td>
                 <td className="px-4 py-2 border">

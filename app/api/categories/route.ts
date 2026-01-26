@@ -3,10 +3,24 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+/**
+ * GET /api/categories
+ */
 export async function GET() {
   try {
     const categories = await prisma.category.findMany({
-      include: { products: true }, // ако искаш да връща продуктите
+      include: {
+        products: {
+          include: {
+            brand: true,
+            subcategory: true,
+            variants: true,
+            images: true,
+            tags: { include: { tag: true } },
+          },
+        },
+        subcategories: true,
+      },
     });
 
     return NextResponse.json(categories, { status: 200 });
@@ -19,9 +33,14 @@ export async function GET() {
   }
 }
 
+/**
+ * POST /api/categories
+ * Body: { name, description?, imageUrl?, slug? }
+ */
 export async function POST(req: NextRequest) {
   try {
-    const { name } = await req.json();
+    const body = await req.json();
+    const { name, description, imageUrl, slug } = body;
 
     if (!name) {
       return NextResponse.json(
@@ -31,7 +50,12 @@ export async function POST(req: NextRequest) {
     }
 
     const category = await prisma.category.create({
-      data: { name },
+      data: {
+        name,
+        description: description ?? null,
+        imageUrl: imageUrl ?? null,
+        slug: slug ?? name.toLowerCase().replace(/\s+/g, "-"),
+      },
     });
 
     return NextResponse.json(category, { status: 201 });

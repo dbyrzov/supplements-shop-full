@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 
 interface Category {
   name: string;
+  slug: string;
   description?: string;
   imageUrl?: string;
 }
@@ -16,10 +17,12 @@ export default function EditCategoryPage() {
 
   const [form, setForm] = useState<Category>({
     name: "",
+    slug: "",
     description: "",
     imageUrl: "",
   });
 
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -32,6 +35,7 @@ export default function EditCategoryPage() {
       .then((data) => {
         setForm({
           name: data.name ?? "",
+          slug: data.slug ?? "",
           description: data.description ?? "",
           imageUrl: data.imageUrl ?? "",
         });
@@ -39,11 +43,26 @@ export default function EditCategoryPage() {
       });
   }, [categoryId]);
 
+  // Validate form
+  const validateForm = () => {
+    const newErrors: { [key: string]: string } = {};
+    if (!form.name.trim()) newErrors.name = "Name is required";
+    if (!form.slug.trim()) newErrors.slug = "Slug is required";
+    return newErrors;
+  };
+
   // Update category
   async function handleUpdate(e: React.FormEvent) {
     e.preventDefault();
-    setSaving(true);
 
+    const validationErrors = validateForm();
+    if (Object.keys(validationErrors).length) {
+      setErrors(validationErrors);
+      return;
+    }
+    setErrors({});
+
+    setSaving(true);
     const res = await fetch(`/api/admin/categories/edit/${categoryId}`, {
       method: "PUT",
       headers: {
@@ -57,7 +76,8 @@ export default function EditCategoryPage() {
     if (res.ok) {
       router.push("/admin/categories");
     } else {
-      alert("Failed to update category");
+      const data = await res.json();
+      alert(data.error || "Failed to update category");
     }
   }
 
@@ -67,56 +87,56 @@ export default function EditCategoryPage() {
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
-      <h1 className="text-4xl font-bold mb-8 text-gray-800">
-        Edit Category
-      </h1>
+      <h1 className="text-4xl font-bold mb-8 text-gray-800">Edit Category</h1>
 
       <form
         onSubmit={handleUpdate}
         className="bg-white p-8 rounded-lg shadow-md space-y-6"
       >
-        <div>
-          <label className="block text-gray-700 font-medium mb-1">
-            Category Name
-          </label>
-          <input
-            type="text"
-            value={form.name}
-            onChange={(e) =>
-              setForm({ ...form, name: e.target.value })
-            }
-            className="border p-3 w-full rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
-            required
-          />
-        </div>
+        {[
+          { label: "Category Name", key: "name", type: "text", required: true },
+          { label: "Slug", key: "slug", type: "text", required: true },
+          { label: "Description", key: "description", type: "textarea" },
+          { label: "Image URL", key: "imageUrl", type: "text" },
+        ].map((field) => (
+          <div key={field.key}>
+            <label className="block text-gray-700 font-medium mb-1">
+              {field.label} {field.required && <span className="text-red-500">*</span>}
+            </label>
 
-        <div>
-          <label className="block text-gray-700 font-medium mb-1">
-            Description
-          </label>
-          <textarea
-            value={form.description}
-            onChange={(e) =>
-              setForm({ ...form, description: e.target.value })
-            }
-            className="border p-3 w-full rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
-            rows={3}
-          />
-        </div>
+            {field.type === "textarea" ? (
+              <textarea
+                value={(form as any)[field.key]}
+                onChange={(e) =>
+                  setForm({ ...form, [field.key]: e.target.value })
+                }
+                className={`border p-3 w-full rounded focus:outline-none focus:ring-1 ${
+                  errors[field.key]
+                    ? "border-red-500 focus:ring-red-400"
+                    : "focus:ring-blue-400"
+                }`}
+                rows={3}
+              />
+            ) : (
+              <input
+                type={field.type}
+                value={(form as any)[field.key]}
+                onChange={(e) =>
+                  setForm({ ...form, [field.key]: e.target.value })
+                }
+                className={`border p-3 w-full rounded focus:outline-none focus:ring-1 ${
+                  errors[field.key]
+                    ? "border-red-500 focus:ring-red-400"
+                    : "focus:ring-blue-400"
+                }`}
+              />
+            )}
 
-        <div>
-          <label className="block text-gray-700 font-medium mb-1">
-            Image URL
-          </label>
-          <input
-            type="text"
-            value={form.imageUrl}
-            onChange={(e) =>
-              setForm({ ...form, imageUrl: e.target.value })
-            }
-            className="border p-3 w-full rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
-          />
-        </div>
+            {errors[field.key] && (
+              <p className="text-red-500 text-sm mt-1">{errors[field.key]}</p>
+            )}
+          </div>
+        ))}
 
         <button
           type="submit"

@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { CreateOrderInput } from '@/types/order';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { CreateOrderInput } from "@/types/order";
 
 /**
  * POST /api/order
@@ -23,23 +23,24 @@ export async function POST(req: NextRequest) {
     // -------------------------
     if (!userId || !items?.length || !shippingAddress) {
       return NextResponse.json(
-        { message: 'Invalid order data' },
+        { message: "Invalid order data" },
         { status: 400 }
       );
     }
 
     // -------------------------
-    // Load products
+    // Load variants
     // -------------------------
-    const productIds = items.map((i: any) => i.productId);
+    const variantIds = items.map((i: any) => i.variantId);
 
-    const products = await prisma.product.findMany({
-      where: { id: { in: productIds } },
+    const variants = await prisma.productVariant.findMany({
+      where: { id: { in: variantIds } },
+      include: { product: true }, // ако искаш информация за продукта
     });
 
-    if (products.length !== items.length) {
+    if (variants.length !== items.length) {
       return NextResponse.json(
-        { message: 'Some products not found' },
+        { message: "Some variants not found" },
         { status: 404 }
       );
     }
@@ -50,18 +51,18 @@ export async function POST(req: NextRequest) {
     let subtotal = 0;
 
     const orderItems = items.map((item: any) => {
-      const product = products.find((p: any) => p.id === item.productId)!;
+      const variant = variants.find((v) => v.id === item.variantId)!;
 
-      if (product.stock < item.quantity) {
-        throw new Error(`Insufficient stock for ${product.name}`);
+      if (variant.stock < item.quantity) {
+        throw new Error(`Insufficient stock for ${variant.product.name}`);
       }
 
-      subtotal += product.price * item.quantity;
+      subtotal += variant.price * item.quantity;
 
       return {
-        productId: product.id,
+        productVariantId: variant.id,
         quantity: item.quantity,
-        price: product.price,
+        priceAtPurchase: variant.price,
       };
     });
 
@@ -70,19 +71,19 @@ export async function POST(req: NextRequest) {
     // -------------------------
     const shippingCost = subtotal > 100 ? 0 : 5;
     const tax = subtotal * 0.2; // 20% VAT
-    const discount = couponCode === 'PROMO10' ? subtotal * 0.1 : 0;
+    const discount = couponCode === "PROMO10" ? subtotal * 0.1 : 0;
 
     const total = subtotal + shippingCost + tax - discount;
 
     // -------------------------
     // Transaction
     // -------------------------
-    const order = await prisma.$transaction(async (tx: any) => {
+    const order = await prisma.$transaction(async (tx) => {
       const createdOrder = await tx.order.create({
         data: {
           userId,
           total,
-          status: 'PENDING',
+          status: "PENDING",
           paymentMethod,
           shippingAddress,
           shippingCost,
@@ -93,18 +94,18 @@ export async function POST(req: NextRequest) {
         },
         include: {
           items: {
-            include: { product: true },
+            include: {
+              variant: { include: { product: true, flavor: true } },
+            },
           },
         },
       });
 
-      // Update stock
+      // Update stock for each variant
       for (const item of orderItems) {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: {
-            stock: { decrement: item.quantity },
-          },
+        await tx.productVariant.update({
+          where: { id: item.productVariantId },
+          data: { stock: { decrement: item.quantity } },
         });
       }
 
@@ -113,10 +114,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(order, { status: 201 });
   } catch (error: any) {
-    console.error('[ORDER_CREATE]', error);
+    console.error("[ORDER_CREATE]", error);
 
     return NextResponse.json(
-      { message: error.message ?? 'Order creation failed' },
+      { message: error.message ?? "Order creation failed" },
       { status: 500 }
     );
   }

@@ -22,35 +22,65 @@ export default function GiftsAdmin() {
     imageUrl: "",
     price: 0,
   });
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
+  // Debounce search
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedSearch(search), 500);
     return () => clearTimeout(handler);
   }, [search]);
 
+  // Fetch gifts
   const fetchGifts = useCallback(() => {
-    fetch(`/api/admin/gifts?page=${page}&limit=10&search=${encodeURIComponent(debouncedSearch)}`)
-      .then(res => res.json())
-      .then(data => {
+    fetch(
+      `/api/admin/gifts?page=${page}&limit=10&search=${encodeURIComponent(
+        debouncedSearch
+      )}`
+    )
+      .then((res) => res.json())
+      .then((data) => {
         setGifts(data.gifts);
         setTotalPages(data.totalPages);
       });
   }, [page, debouncedSearch]);
 
-  useEffect(() => { fetchGifts(); }, [fetchGifts]);
+  useEffect(() => {
+    fetchGifts();
+  }, [fetchGifts]);
 
+  // Validate form
+  const validateForm = () => {
+    const newErrors: { [key: string]: string } = {};
+    if (!form.name.trim()) newErrors.name = "Gift name is required";
+    if (form.price <= 0) newErrors.price = "Price must be greater than 0";
+    return newErrors;
+  };
+
+  // Add gift
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    const validationErrors = validateForm();
+    if (Object.keys(validationErrors).length) {
+      setErrors(validationErrors);
+      return;
+    }
+    setErrors({});
+
     const res = await fetch("/api/admin/gifts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
+
     if (res.ok) {
       fetchGifts();
       setForm({ name: "", description: "", imageUrl: "", price: 0 });
+    } else {
+      const data = await res.json();
+      alert(data.error || "Failed to add gift");
     }
   }
 
@@ -58,42 +88,77 @@ export default function GiftsAdmin() {
     <div className="p-8 bg-gray-50 min-h-screen">
       <h1 className="text-4xl font-bold mb-8 text-gray-800">Gifts Admin</h1>
 
-      <form onSubmit={handleSubmit} className="mb-8 bg-white p-8 rounded-lg shadow-md space-y-6">
+      {/* Add Gift Form */}
+      <form
+        onSubmit={handleSubmit}
+        className="mb-8 bg-white p-8 rounded-lg shadow-md space-y-6"
+      >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {[
-            { label: "Gift Name", key: "name", type: "text" },
+            { label: "Gift Name", key: "name", type: "text", required: true },
             { label: "Description", key: "description", type: "text" },
             { label: "Image URL", key: "imageUrl", type: "text" },
-            { label: "Price ($)", key: "price", type: "number" },
-          ].map(field => (
+            { label: "Price ($)", key: "price", type: "number", required: true },
+          ].map((field) => (
             <div key={field.key}>
-              <label className="block text-gray-700 font-medium mb-1">{field.label}</label>
+              <label className="block text-gray-700 font-medium mb-1">
+                {field.label} {field.required && <span className="text-red-500">*</span>}
+              </label>
               <input
                 type={field.type}
                 value={(form as any)[field.key]}
-                onChange={e => setForm({ ...form, [field.key]: field.type === "number" ? parseFloat(e.target.value) || 0 : e.target.value })}
-                className="border p-3 w-full rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    [field.key]:
+                      field.type === "number"
+                        ? parseFloat(e.target.value) || 0
+                        : e.target.value,
+                  })
+                }
+                className={`border p-3 w-full rounded focus:outline-none focus:ring-1 ${
+                  errors[field.key]
+                    ? "border-red-500 focus:ring-red-400"
+                    : "focus:ring-blue-400"
+                }`}
               />
+              {errors[field.key] && (
+                <p className="text-red-500 text-sm mt-1">{errors[field.key]}</p>
+              )}
             </div>
           ))}
         </div>
 
-        <button type="submit" className="mt-6 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
+        <button
+          type="submit"
+          className="mt-6 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+        >
           Add Gift
         </button>
       </form>
 
+      {/* Gifts Table */}
       <div className="overflow-x-auto bg-white p-6 rounded-sm shadow space-y-4">
+        {/* Search */}
         <div className="relative w-full md:w-1/2 mb-4">
           <input
             type="text"
             placeholder="Search by name..."
             value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
             className="w-full border rounded-lg px-4 py-2 pr-10 focus:outline-none focus:ring-1 focus:ring-blue-400"
           />
           {search && (
-            <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition" aria-label="Clear search">✕</button>
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition"
+              aria-label="Clear search"
+            >
+              ✕
+            </button>
           )}
         </div>
 
@@ -107,14 +172,16 @@ export default function GiftsAdmin() {
             </tr>
           </thead>
           <tbody>
-            {gifts.map(g => (
+            {gifts.map((g) => (
               <tr key={g.id} className="hover:bg-gray-50 transition">
                 <td className="px-4 py-2 border">{g.id}</td>
                 <td className="px-4 py-2 border">{g.name}</td>
                 <td className="px-4 py-2 border">{g.price.toFixed(2)}</td>
                 <td className="px-4 py-2 border">
-                  <button onClick={() => router.push(`/admin/gifts/edit/${g.id}`)}
-                    className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition">
+                  <button
+                    onClick={() => router.push(`/admin/gifts/edit/${g.id}`)}
+                    className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition"
+                  >
                     Edit
                   </button>
                 </td>
@@ -123,10 +190,25 @@ export default function GiftsAdmin() {
           </tbody>
         </table>
 
+        {/* Pagination */}
         <div className="flex justify-between mt-4">
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50 hover:bg-gray-300 transition">Previous</button>
-          <span className="text-gray-700 font-medium">Page {page} of {totalPages}</span>
-          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50 hover:bg-gray-300 transition">Next</button>
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50 hover:bg-gray-300 transition"
+          >
+            Previous
+          </button>
+          <span className="text-gray-700 font-medium">
+            Page {page} of {totalPages}
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50 hover:bg-gray-300 transition"
+          >
+            Next
+          </button>
         </div>
       </div>
     </div>

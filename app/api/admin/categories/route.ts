@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+/**
+ * GET /admin/categories?page=1&limit=10&search=...
+ * Административен списък на категориите с pagination
+ */
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
@@ -9,22 +13,19 @@ export async function GET(req: NextRequest) {
     const skip = (page - 1) * limit;
     const search = url.searchParams.get("search") || "";
 
-    // Ако има search, филтрираме по име
     const where = search
       ? {
-          name: {
-            contains: search, // substring search
-          },
+          name: { contains: search, mode: "insensitive" },
         }
       : {};
 
-    // Вземаме категории + общ брой
     const [categories, total] = await Promise.all([
       prisma.category.findMany({
         skip,
         take: limit,
         where,
         orderBy: { id: "desc" },
+        include: { subcategories: true }, // броим подкатегориите
       }),
       prisma.category.count({ where }),
     ]);
@@ -44,11 +45,33 @@ export async function GET(req: NextRequest) {
   }
 }
 
+/**
+ * POST /admin/categories
+ * Създаване на нова категория
+ * Body: { name, description?, imageUrl?, slug? }
+ */
 export async function POST(req: NextRequest) {
   try {
-    const data = await req.json();
-    const category = await prisma.category.create({ data });
-    return NextResponse.json(category);
+    const body = await req.json();
+    const { name, description, imageUrl, slug } = body;
+
+    if (!name) {
+      return NextResponse.json(
+        { message: "Category name is required" },
+        { status: 400 }
+      );
+    }
+
+    const category = await prisma.category.create({
+      data: {
+        name,
+        description: description ?? null,
+        imageUrl: imageUrl ?? null,
+        slug: slug ?? name.toLowerCase().replace(/\s+/g, "-"),
+      },
+    });
+
+    return NextResponse.json(category, { status: 201 });
   } catch (error) {
     console.error("Error creating category:", error);
     return NextResponse.json(

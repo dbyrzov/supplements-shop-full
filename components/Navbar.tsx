@@ -46,11 +46,11 @@ export default function Navbar() {
   const isLoggedIn = !!session;
 
   const links = [
-    { name: "Home", href: "/" },
-    { name: "Products", href: "/products" },
+    { name: "Продукти", href: "/products" },
+    { name: "Контакти", href: "/contact" },
   ];
 
-  if (isAdmin) links.push({ name: "Admin", href: "/admin" });
+  if (isAdmin) links.push({ name: "Админ", href: "/admin" });
 
   function isLinkActive(linkHref: string, currentPath: string) {
     if (linkHref === "/") return currentPath === "/";
@@ -73,12 +73,15 @@ export default function Navbar() {
   return (
     <nav className="bg-gradient-to-r from-sky-950/95 to-sky-900/95 text-white fixed w-full z-50 shadow-lg backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-        {/* LOGO */}
-        <Link
-          href="/"
-          className="text-2xl font-extrabold tracking-tight hover:text-yellow-300 transition"
-        >
-          Supplements Shop
+        <Link href="/" className="flex items-center space-x-3">
+          <Image
+            src="/logo.png"
+            alt="BodyNutrify Logo"
+            width={150}
+            height={50} 
+            priority
+            className="hover:scale-105 transition-transform duration-300"
+          />
         </Link>
 
         {/* DESKTOP */}

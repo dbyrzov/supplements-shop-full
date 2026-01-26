@@ -4,102 +4,250 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  url      = "file:./dev.db"
 }
 
 // ========================
 // USERS
 // ========================
 model User {
-  id        Int       @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   name      String
-  email     String    @unique
+  email     String   @unique
   password  String
   phone     String?
   orders    Order[]
   reviews   Review[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ========================
 // CATEGORIES
 // ========================
 model Category {
-  id          Int       @id @default(autoincrement())
-  name        String    @unique
-  description String?
-  imageUrl    String?
-  products    Product[]
+  id            Int           @id @default(autoincrement())
+  name          String        @unique
+  slug          String        @unique
+  description   String?
+  imageUrl      String?
+  products      Product[]
+  subcategories Subcategory[]
+}
+
+// ========================
+// SUBCATEGORIES
+// ========================
+model Subcategory {
+  id         Int      @id @default(autoincrement())
+  name       String
+  slug       String   @unique
+  categoryId Int
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  products   Product[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([categoryId])
+}
+
+// ========================
+// BRAND
+// ========================
+model Brand {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  slug     String    @unique
+  logo     String?
+  products Product[]
 }
 
 // ========================
 // PRODUCTS
 // ========================
 model Product {
-  id             Int        @id @default(autoincrement())
-  name           String
-  description    String?
-  price          Float
-  imageUrl       String?
-  stock          Int        @default(0)
-  sku            String?    @unique
-  weight         Float?
-  servingSize    String?
-  ingredients    String?    // ще пазим JSON като текст
-  nutritionInfo  String?    // ще пазим JSON като текст
-  allergens      String?
-  brand          String?
-  tags           String?    // CSV string за филтри и етикети
-  rating         Float?     @default(0)
-  categoryId     Int
-  category       Category   @relation(fields: [categoryId], references: [id])
-  reviews        Review[]
-  orderItems     OrderItem[]
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  id          Int      @id @default(autoincrement())
+  name        String
+  slug        String   @unique
+  description String?
+
+  brandId     Int?
+  brand       Brand?   @relation(fields: [brandId], references: [id], onDelete: SetNull)
+
+  categoryId    Int
+  category      Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  subcategoryId Int
+  subcategory   Subcategory @relation(fields: [subcategoryId], references: [id], onDelete: Cascade)
+
+  nutritionProfile NutritionProfile?
+  ingredients       Ingredient[]
+  tags              ProductTag[]
+  variants          ProductVariant[]
+  reviews           Review[]
+  images            ProductImage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([subcategoryId])
+  @@index([brandId])
+}
+
+// ========================
+// PRODUCT IMAGES
+// ========================
+model ProductImage {
+  id        Int     @id @default(autoincrement())
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  isPrimary Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
+}
+
+// ========================
+// PRODUCT VARIANTS
+// ========================
+model ProductVariant {
+  id        Int     @id @default(autoincrement())
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  flavorId  Int?
+  flavor    Flavor? @relation(fields: [flavorId], references: [id], onDelete: SetNull)
+
+  sku       String  @unique
+  grams     Float
+  price     Float
+  stock     Int     @default(0)
+
+  orderItems OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
+  @@index([flavorId])
+}
+
+// ========================
+// FLAVORS
+// ========================
+model Flavor {
+  id       Int             @id @default(autoincrement())
+  name     String          @unique
+  variants ProductVariant[]
+}
+
+// ========================
+// NUTRITION PROFILE
+// ========================
+model NutritionProfile {
+  id          Int     @id @default(autoincrement())
+  productId   Int     @unique
+  servingSize String
+  calories    Int
+  protein     Float
+  carbs       Float
+  fats        Float
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// ========================
+// INGREDIENTS
+// ========================
+model Ingredient {
+  id        Int     @id @default(autoincrement())
+  productId Int
+  name      String
+  amount    String?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+// ========================
+// TAGS
+// ========================
+model Tag {
+  id       Int          @id @default(autoincrement())
+  name     String       @unique
+  products ProductTag[]
+}
+
+model ProductTag {
+  productId Int
+  tagId     Int
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([productId, tagId])
 }
 
 // ========================
 // GIFTS
 // ========================
 model Gift {
-  id          Int       @id @default(autoincrement())
-  name        String @unique
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
   description String?
   imageUrl    String?
   price       Float
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 // ========================
 // ORDERS
 // ========================
 model Order {
-  id              Int         @id @default(autoincrement())
+  id              Int      @id @default(autoincrement())
   userId          Int
-  user            User        @relation(fields: [userId], references: [id])
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   items           OrderItem[]
   total           Float
-  status          String      @default("PENDING")  // PENDING, PROCESSING, SHIPPED, DELIVERED, CANCELLED, REFUNDED
-  paymentMethod   String?     // "card", "paypal", "cash"
+
+  status          String   @default("PENDING")
+  paymentMethod   String?
+
   shippingAddress String
   shippingCost    Float?
   trackingNumber  String?
   notes           String?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
 }
 
+// ========================
+// ORDER ITEM
+// ========================
 model OrderItem {
-  id         Int      @id @default(autoincrement())
-  orderId    Int
-  order      Order    @relation(fields: [orderId], references: [id])
-  productId  Int
-  product    Product  @relation(fields: [productId], references: [id])
-  quantity   Int      @default(1)
-  price      Float    // цена на единица към момента на поръчката
+  id               Int            @id @default(autoincrement())
+  orderId          Int
+  order            Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productVariantId Int
+  variant          ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+
+  quantity         Int
+  priceAtPurchase  Float
+
+  @@index([orderId])
+  @@index([productVariantId])
 }
 
 // ========================
@@ -108,11 +256,14 @@ model OrderItem {
 model Review {
   id        Int      @id @default(autoincrement())
   userId    Int
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   productId Int
-  product   Product  @relation(fields: [productId], references: [id])
-  rating    Int      // 1-5
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  rating    Int
   comment   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([productId])
 }

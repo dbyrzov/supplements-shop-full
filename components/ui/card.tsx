@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { ReactNode } from "react";
+import { ReactNode, HTMLAttributes } from "react";
 
-type CardProps = {
+type CardProps = HTMLAttributes<HTMLDivElement> & {
   children: ReactNode;
   className?: string;
 };
 
-export default function Card({ children, className = "" }: CardProps) {
+export default function Card({ children, className = "", ...props }: CardProps) {
   return (
     <div
       className={`
@@ -23,15 +23,15 @@ export default function Card({ children, className = "" }: CardProps) {
         cursor-pointer
         ${className}
       `}
+      {...props} // тук приемаме onClick, style, id и други HTML пропове
     >
       {children}
     </div>
   );
 }
 
-
-interface CardContentProps extends React.HTMLAttributes<HTMLDivElement> {
-  children: React.ReactNode;
+interface CardContentProps extends HTMLAttributes<HTMLDivElement> {
+  children: ReactNode;
   className?: string;
 }
 

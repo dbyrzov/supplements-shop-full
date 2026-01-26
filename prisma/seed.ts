@@ -1,120 +1,189 @@
 import { PrismaClient } from "@prisma/client";
+
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("Seeding database...");
-
   // ========================
-  // Categories
+  // USERS
   // ========================
-  const categoriesData = [
-    { name: "Протеини", description: "Протеинови добавки за мускулна маса", imageUrl: "/images/categories/proteins.jpg" },
-    { name: "Витамини", description: "Витамини и минерали за здраве", imageUrl: "/images/categories/vitamins.jpg" },
-    { name: "Предтренировъчни", description: "Добавки за енергия преди тренировка", imageUrl: "/images/categories/preworkout.jpg" },
-  ];
-
-  for (const cat of categoriesData) {
-    await prisma.category.upsert({
-      where: { name: cat.name },
-      update: {},
-      create: cat,
-    });
-  }
-
-  // ========================
-  // Users
-  // ========================
-  const usersData = [
-    { name: "Иван Иванов", email: "ivan@example.com", password: "123456" },
-    { name: "Мария Петрова", email: "maria@example.com", password: "123456" },
-  ];
-
-  for (const user of usersData) {
-    await prisma.user.upsert({
-      where: { email: user.email },
-      update: {},
-      create: user,
-    });
-  }
-
-  // ========================
-  // Products
-  // ========================
-  const productsData = [
-    {
-      name: "Whey Protein 2kg",
-      description: "Висококачествен суроватъчен протеин за мускулен растеж",
-      price: 79.99,
-      stock: 50,
-      categoryId: 1,
-      imageUrl: "/images/products/whey.jpg",
-      sku: "WP2000",
-      brand: "MuscleLab",
-      tags: "протеин,мускули,спорт",
+  const user1 = await prisma.user.create({
+    data: {
+      name: "Ivan Petrov",
+      email: "ivan@example.com",
+      password: "hashedpassword1",
+      phone: "0888123456",
     },
-    {
-      name: "Vitamin C 500mg",
-      description: "Витамин C за имунна система",
-      price: 12.5,
-      stock: 100,
-      categoryId: 2,
-      imageUrl: "/images/products/vitc.jpg",
-      sku: "VC500",
-      brand: "HealthPlus",
-      tags: "витамини,имунитет",
+  });
+
+  const user2 = await prisma.user.create({
+    data: {
+      name: "Maria Georgieva",
+      email: "maria@example.com",
+      password: "hashedpassword2",
     },
-    {
-      name: "PreWorkout Extreme",
-      description: "Енергия и концентрация преди тренировка",
-      price: 39.99,
-      stock: 30,
-      categoryId: 3,
-      imageUrl: "/images/products/preworkout.jpg",
-      sku: "PWE001",
-      brand: "EnergyBoost",
-      tags: "енергия,фокус,спорт",
+  });
+
+  // ========================
+  // BRANDS
+  // ========================
+  const brand1 = await prisma.brand.create({
+    data: {
+      name: "NutriGood",
+      slug: "nutrigood",
+      logo: "https://example.com/logos/nutrigood.png",
     },
-  ];
+  });
 
-  for (const prod of productsData) {
-    await prisma.product.upsert({
-      where: { sku: prod.sku! },
-      update: {},
-      create: prod,
-    });
-  }
-
-  // ========================
-  // Gifts
-  // ========================
-  const giftsData = [
-    { name: "Шейкър", description: "Пластмасов шейкър за протеин", price: 5.99, imageUrl: "/images/gifts/shaker.jpg" },
-    { name: "Лента за упражнения", description: "Еластична лента за тренировки", price: 7.5, imageUrl: "/images/gifts/band.jpg" },
-  ];
-
-  for (const gift of giftsData) {
-    await prisma.gift.upsert({
-      where: { name: gift.name },
-      update: {},
-      create: gift,
-    });
-  }
+  const brand2 = await prisma.brand.create({
+    data: {
+      name: "HealthyLife",
+      slug: "healthylife",
+    },
+  });
 
   // ========================
-  // Orders + OrderItems
+  // CATEGORIES & SUBCATEGORIES
+  // ========================
+  const cat1 = await prisma.category.create({
+    data: {
+      name: "Supplements",
+      slug: "supplements",
+      description: "Vitamins, minerals, and other dietary supplements",
+      subcategories: {
+        create: [
+          { name: "Protein", slug: "protein" },
+          { name: "Vitamins", slug: "vitamins" },
+        ],
+      },
+    },
+    include: { subcategories: true },
+  });
+
+  const cat2 = await prisma.category.create({
+    data: {
+      name: "Snacks",
+      slug: "snacks",
+      description: "Healthy snacks and bars",
+      subcategories: {
+        create: [
+          { name: "Bars", slug: "bars" },
+          { name: "Nuts & Seeds", slug: "nuts-seeds" },
+        ],
+      },
+    },
+    include: { subcategories: true },
+  });
+
+  // ========================
+  // TAGS
+  // ========================
+  const tag1 = await prisma.tag.create({ data: { name: "Organic" } });
+  const tag2 = await prisma.tag.create({ data: { name: "Gluten-Free" } });
+
+  // ========================
+  // PRODUCTS
+  // ========================
+  const product1 = await prisma.product.create({
+    data: {
+      name: "Whey Protein Vanilla",
+      slug: "whey-protein-vanilla",
+      description: "High-quality whey protein with vanilla flavor",
+      brandId: brand1.id,
+      categoryId: cat1.id,
+      subcategoryId: cat1.subcategories[0].id,
+      nutritionProfile: {
+        create: {
+          servingSize: "30g",
+          calories: 120,
+          protein: 24,
+          carbs: 2,
+          fats: 1.5,
+        },
+      },
+      images: {
+        create: [
+          { url: "https://example.com/images/whey1.png", isPrimary: true },
+          { url: "https://example.com/images/whey2.png" },
+        ],
+      },
+      variants: {
+        create: [
+          { sku: "WP-VAN-500", grams: 500, price: 39.99, stock: 50 },
+          { sku: "WP-VAN-1000", grams: 1000, price: 69.99, stock: 30 },
+        ],
+      },
+      ingredients: {
+        create: [
+          { name: "Whey Protein Concentrate", amount: "25g" },
+          { name: "Natural Vanilla Flavor", amount: "0.5g" },
+        ],
+      },
+      tags: {
+        create: [
+          { tagId: tag1.id },
+          { tagId: tag2.id },
+        ],
+      },
+    },
+    include: { variants: true, images: true, nutritionProfile: true },
+  });
+
+  const product2 = await prisma.product.create({
+    data: {
+      name: "Almond Protein Bar",
+      slug: "almond-protein-bar",
+      description: "Delicious protein bar with almonds",
+      brandId: brand2.id,
+      categoryId: cat2.id,
+      subcategoryId: cat2.subcategories[0].id,
+      nutritionProfile: {
+        create: {
+          servingSize: "50g",
+          calories: 200,
+          protein: 10,
+          carbs: 18,
+          fats: 8,
+        },
+      },
+      images: {
+        create: [
+          { url: "https://example.com/images/bar1.png", isPrimary: true },
+        ],
+      },
+      variants: {
+        create: [{ sku: "ALMBAR-50", grams: 50, price: 2.99, stock: 100 }],
+      },
+      ingredients: {
+        create: [
+          { name: "Almonds", amount: "15g" },
+          { name: "Whey Protein", amount: "10g" },
+          { name: "Honey", amount: "5g" },
+        ],
+      },
+      tags: {
+        create: [{ tagId: tag1.id }],
+      },
+    },
+    include: { variants: true },
+  });
+
+  // ========================
+  // ORDERS
   // ========================
   const order1 = await prisma.order.create({
     data: {
-      userId: 1,
-      total: 92.49,
-      status: "PROCESSING",
-      paymentMethod: "card",
-      shippingAddress: "София, ул. Пример 12",
-      shippingCost: 5.0,
+      userId: user1.id,
+      total: 69.99,
+      status: "PENDING",
+      paymentMethod: "CARD",
+      shippingAddress: "Sofia, Bulgaria",
       items: {
         create: [
-          { productId: 1, quantity: 1, price: 79.99 },
-          { productId: 2, quantity: 1, price: 12.5 },
+          {
+            productVariantId: product1.variants[1].id,
+            quantity: 1,
+            priceAtPurchase: 69.99,
+          },
         ],
       },
     },
@@ -122,35 +191,24 @@ async function main() {
 
   const order2 = await prisma.order.create({
     data: {
-      userId: 2,
-      total: 39.99,
-      status: "SHIPPED",
-      paymentMethod: "paypal",
-      shippingAddress: "Пловдив, бул. Тест 45",
+      userId: user2.id,
+      total: 2.99,
+      status: "PROCESSING",
+      paymentMethod: "CASH",
+      shippingAddress: "Plovdiv, Bulgaria",
       items: {
         create: [
-          { productId: 3, quantity: 1, price: 39.99 },
+          {
+            productVariantId: product2.variants[0].id,
+            quantity: 1,
+            priceAtPurchase: 2.99,
+          },
         ],
       },
     },
   });
 
-  // ========================
-  // Reviews
-  // ========================
-  const reviewsData = [
-    { userId: 1, productId: 1, rating: 5, comment: "Много качествен протеин, вкусен е!" },
-    { userId: 2, productId: 2, rating: 4, comment: "Добър витамин, леко скъп" },
-    { userId: 2, productId: 3, rating: 5, comment: "Енергията е страхотна преди тренировка" },
-  ];
-
-  for (const rev of reviewsData) {
-    await prisma.review.create({
-      data: rev,
-    });
-  }
-
-  console.log("Seeding finished.");
+  console.log("✅ Seed completed!");
 }
 
 main()
