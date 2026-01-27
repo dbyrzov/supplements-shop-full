@@ -92,10 +92,7 @@ export default function ProductsPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 pb-6">
-      <PromoBanner
-        message="🎉 Подарък към всяка поръчка над 20 евро!"
-        message2="🎉 Безплатна доставка за поръчка над 40 евро!"
-      />
+      <PromoBanner/>
 
       {/* Breadcrumb */}
       <Breadcrumb />

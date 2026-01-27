@@ -267,3 +267,14 @@ model Review {
   @@index([userId])
   @@index([productId])
 }
+
+// ========================
+// PROMO
+// ========================
+model PromoMessage {
+  id        Int      @id @default(autoincrement())
+  message   String
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
